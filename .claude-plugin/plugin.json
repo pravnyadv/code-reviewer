@@ -1,0 +1,11 @@
+{
+  "name": "code-reviewer",
+  "version": "1.0.0",
+  "description": "Code Reviewer: Reviews your code to find design problems, security risks, slow parts, timing issues between processes, weak error handling, and edge case bugs — helping you make your code safer, faster, and more reliable.",
+  "author": {
+    "name": "Dhiraj",
+    "url": "https://github.com/nisweytech/code-reviewer"
+  },
+  "homepage": "https://github.com/nisweytech/code-reviewer",
+  "license": "MIT"
+}
