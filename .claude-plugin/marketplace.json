@@ -1,0 +1,35 @@
+{
+    "name": "nisweytech",
+    "owner": {
+        "name": "NisweyTech",
+        "email": "dhiraj@niswey.com"
+    },
+    "metadata": {
+        "description": "NisweyTech plugin marketplace for Claude Code",
+        "version": "1.0.0"
+    },
+    "plugins": [
+        {
+            "name": "code-reviewer",
+            "source": {
+                "source": "github",
+                "repo": "NisweyTech/code-reviewer"
+            },
+            "description": "Senior engineer code review — covers SOLID, security, performance, testing, API design with P0–P3 severity ratings",
+            "version": "1.0.0",
+            "author": {
+                "name": "Dhiraj",
+                "homepage": "https://github.com/NisweyTech/code-reviewer"
+            },
+            "license": "MIT",
+            "category": "code-quality",
+            "tags": [
+                "code-review",
+                "security",
+                "solid",
+                "architecture",
+                "testing"
+            ]
+        }
+    ]
+}

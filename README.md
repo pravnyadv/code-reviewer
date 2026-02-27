@@ -16,45 +16,30 @@ A Claude Code plugin that performs structured senior-engineer code reviews. Cove
 
 - [Claude Code](https://claude.ai/code) installed
 
-### Install the plugin
+### Install from marketplace (recommended)
 
-**Step 1 — Clone the plugin:**
+**Step 1 — Add the marketplace:**
 ```bash
-git clone https://github.com/NisweyTech/code-reviewer.git ~/code-reviewer
+claude plugin marketplace add https://github.com/NisweyTech/code-reviewer
 ```
 
-**Step 2 — Create a local marketplace wrapper:**
+**Step 2 — Install the plugin:**
 ```bash
-mkdir -p ~/nisweytech/.claude-plugin
-mkdir -p ~/nisweytech/plugins
-ln -s ~/code-reviewer ~/nisweytech/plugins/code-reviewer
-```
-
-**Step 3 — Create `~/nisweytech/.claude-plugin/marketplace.json`:**
-```json
-{
-  "name": "nisweytech",
-  "owner": { "name": "your-name" },
-  "plugins": [
-    {
-      "name": "code-reviewer",
-      "source": "./plugins/code-reviewer",
-      "description": "Senior engineer code review for Claude Code"
-    }
-  ]
-}
-```
-
-**Step 4 — Register and install:**
-```bash
-claude plugin marketplace add ~/nisweytech
 claude plugin install code-reviewer@nisweytech --scope user
 ```
 
-**Step 5 — Verify:**
+**Step 3 — Verify:**
 ```bash
 claude plugin list
 # code-reviewer@nisweytech   Version: 1.0.0   Scope: user   Status: ✔ enabled
+```
+
+### Install from local clone
+
+```bash
+git clone https://github.com/NisweyTech/code-reviewer.git ~/code-reviewer
+claude plugin marketplace add ~/code-reviewer
+claude plugin install code-reviewer@nisweytech --scope user
 ```
 
 ### Session-only (no permanent install)
@@ -139,7 +124,8 @@ How would you like to proceed?
 ```
 code-reviewer/
 ├── .claude-plugin/
-│   └── plugin.json                       # Plugin manifest
+│   ├── plugin.json                        # Plugin manifest
+│   └── marketplace.json                   # Marketplace definition
 ├── commands/
 │   └── code-reviewer.md             # /code-reviewer slash command
 ├── skills/
