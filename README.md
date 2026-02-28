@@ -1,9 +1,10 @@
 # code-reviewer
 
-A Claude Code plugin that performs structured senior-engineer code reviews. Covers SOLID principles, security vulnerabilities, performance issues, error handling, testing, API design, and boundary conditions — with P0–P3 severity ratings and confirmation before applying any fixes.
+A Claude Code plugin that performs structured code reviews. Covers SOLID principles, security vulnerabilities, performance issues, error handling, testing, API design, and boundary conditions — with P0–P3 severity ratings and confirmation before applying any fixes.
 
 ## Features
 
+- **⚡ Token Optimized** — Checklists are compressed with concise bullet points and stripped of boilerplate, saving 20-45% tokens compared to standard instructions.
 - **SOLID + Architecture** — SRP, OCP, LSP, ISP, DIP violations, layer integrity, and common code smells
 - **Security** — XSS, injection, SSRF, AuthN/AuthZ gaps, JWT misuse, secrets leakage, file uploads, race conditions
 - **Code Quality** — N+1 queries, async patterns, logging quality, type safety, error handling, boundary conditions

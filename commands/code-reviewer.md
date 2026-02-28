@@ -1,4 +1,4 @@
-# Senior Engineer Code Review Protocol
+# Code Review Protocol
 
 Review current git changes using a risk-first approach.
 ---
@@ -16,21 +16,21 @@ Review current git changes using a risk-first approach.
   - Brief risk summary
 ---
 ## 2. Architecture & Design
-- Read: `subskills/review-solid-architecture.md`
+- Read: `../skills/code-reviewer/subskills/review-solid-architecture.md`
 - Apply all checks from subskill
 - Severity: P1 = must fix, P2 = improvement
 ---
 ## 3. Removal Candidates
-- Read: `subskills/plan-dead-code-removal.md`
+- Read: `../skills/code-reviewer/subskills/plan-dead-code-removal.md`
 - Apply all checks from subskill
 ---
 ## 4. Security & Concurrency
-- Read: `subskills/audit-security-reliability.md`
+- Read: `../skills/code-reviewer/subskills/audit-security-reliability.md`
 - Apply all checks from subskill
 - Severity: P0 = exploitable, P1 = high risk, P2 = hardening
 ---
 ## 5. Reliability & Quality
-- Read: `subskills/check-quality-performance.md`
+- Read: `../skills/code-reviewer/subskills/check-quality-performance.md`
 - Apply all checks from subskill
 ---
 ## 6. Testing & API Design
@@ -38,7 +38,7 @@ Review current git changes using a risk-first approach.
   - Look for: `test/`, `tests/`, `__tests__/`, `spec/`, `*_test.*`, `*.test.*`, `*.spec.*`
   - Or check for test scripts in `package.json`, `pytest.ini`, `phpunit.xml`, etc.
 - If tests found:
-  - Read: `subskills/validate-testing-api-design.md`
+  - Read: `../skills/code-reviewer/subskills/validate-testing-api-design.md`
   - Apply all checks from subskill
 - If no tests found:
   - Skip testing checks
