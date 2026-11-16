@@ -154,7 +154,8 @@ def main():
         "mode": "mr" if mr else "branch", "mr": mr,
         "branch": branch, "target": target, "range": rng, "head": head,
         "cache": cache_path, "cached_commit": (cache or {}).get("reviewed_commit"),
-        "files": len(prints), "changed_files": changed if cache else list(prints),
+        # A full review covers every file, even those whose diff matches the cache.
+        "files": len(prints), "changed_files": list(prints) if plan == "full-parallel" else changed,
         "unchanged_files": len(unchanged) if cache else 0, "removed_files": gone,
         "carried_findings": carried, "recheck_findings": recheck, "resolved_findings": resolved,
     }, indent=2))

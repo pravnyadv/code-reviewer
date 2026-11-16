@@ -1,6 +1,6 @@
 {
   "name": "code-reviewer",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "Code Reviewer: Reviews your code to find design problems, security risks, slow parts, timing issues between processes, weak error handling, and edge case bugs \u2014 helping you make your code safer, faster, and more reliable.",
   "author": {
     "name": "Dhiraj",
