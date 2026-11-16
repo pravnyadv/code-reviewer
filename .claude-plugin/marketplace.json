@@ -15,8 +15,8 @@
                 "source": "github",
                 "repo": "NisweyTech/code-reviewer"
             },
-            "description": "Senior Code Reviewer — covers SOLID, security, performance, testing, API design with P0–P3 severity ratings",
-            "version": "1.0.0",
+            "description": "Senior Code Reviewer \u2014 covers SOLID, security, performance, testing, API design with P0\u2013P3 severity ratings",
+            "version": "1.1.0",
             "author": {
                 "name": "Dhiraj",
                 "homepage": "https://github.com/NisweyTech/code-reviewer"

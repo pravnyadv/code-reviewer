@@ -1,6 +1,12 @@
 # Security & Reliability Audit
 
 Check changed files for vulnerabilities, auth gaps, and concurrency issues.
+
+**Verification requirement**: Security findings have the highest false-positive rate. Before reporting, you MUST:
+1. Confirm the vulnerability is reachable — trace the data flow from user input to the flagged line
+2. Check if the framework or middleware already mitigates it (e.g., ORM parameterization, React auto-escaping, CSRF middleware)
+3. Distinguish between test/dev code and production code — test fixtures with "hardcoded secrets" are not vulnerabilities
+4. Only flag supply chain / dependency issues if you can confirm a specific CVE or version range
 ---
 ## 1. Input/Output Safety
 - Flag:
@@ -92,7 +98,17 @@ Check changed files for vulnerabilities, auth gaps, and concurrency issues.
   - Missing idempotency for retryable operations
   - Lost updates from concurrent modifications
 ---
+## False positive filters
+- ORM/query-builder parameterized queries are NOT SQL injection — do not flag `User.find({ id })` or `db.query("SELECT * FROM x WHERE id = $1", [id])`
+- React JSX auto-escapes — do not flag `{variable}` in JSX as XSS (only flag `dangerouslySetInnerHTML` with user input)
+- Framework CSRF protection — do not flag CSRF if Django/Rails/Express has CSRF middleware enabled
+- Test files with hardcoded tokens/passwords — not a secret leak
+- `process.env.X || "default"` in dev/test config — only flag if it runs in production
+- Internal service-to-service endpoints — do not flag missing rate limiting or public auth
+- bcrypt/argon2 usage — do not flag as "weak crypto" (they are strong password hashing)
+- UUIDs as identifiers — not an IDOR vulnerability by themselves
+---
 Severity:
-- P0 = exploitable vulnerability or data loss
-- P1 = high risk, auth/crypto flaw
-- P2 = hardening, defense-in-depth
+- P0 = exploitable vulnerability or data loss — must be provably reachable
+- P1 = high risk, auth/crypto flaw — must show a concrete attack scenario
+- P2 = hardening, defense-in-depth — nice to have, not blocking

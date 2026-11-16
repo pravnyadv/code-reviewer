@@ -4,7 +4,8 @@ A Claude Code plugin that performs structured code reviews. Covers SOLID princip
 
 ## Features
 
-- **⚡ Token Optimized** — Checklists are compressed with concise bullet points and stripped of boilerplate, saving 20-45% tokens compared to standard instructions.
+- **♻️ Incremental Re-reviews** — Caches findings per scope inside `.git/code-review/` (never committed, one cache per worktree), keyed by a SHA-256 of each file's full diff. On re-runs, skips unchanged files and only re-checks modified files for fixes + new issues — typically **60-80% faster** on follow-up reviews
+- **⚡ Token Optimized** — Checklists are compressed with concise bullet points and stripped of boilerplate, saving 20-45% tokens compared to standard instructions
 - **SOLID + Architecture** — SRP, OCP, LSP, ISP, DIP violations, layer integrity, and common code smells
 - **Security** — XSS, injection, SSRF, AuthN/AuthZ gaps, JWT misuse, secrets leakage, file uploads, race conditions
 - **Code Quality** — N+1 queries, async patterns, logging quality, type safety, error handling, boundary conditions
@@ -64,6 +65,16 @@ You can also pass a specific file or context:
 /code-reviewer src/auth/login.ts
 ```
 
+Review a GitLab MR, or committed work on a branch before its MR exists:
+```
+/code-reviewer https://gitlab.niswey.net/group/repo/-/merge_requests/123
+/code-reviewer !123
+/code-reviewer --branch            # current branch vs origin's default branch
+/code-reviewer --branch develop    # current branch vs origin/develop
+```
+
+With a clean working tree and no MR, branch mode is the default. Add `--no-cache` for one-off or parallel runs (gates, CI) so nothing is read from or written to the cache.
+
 ### Natural language (auto-activation)
 
 The skill activates automatically when you ask things like:
@@ -76,18 +87,30 @@ The skill activates automatically when you ask things like:
 
 ## Review workflow
 
-The plugin follows an 8-step process:
+The plugin follows a multi-step process with incremental caching:
 
 | Step | Action |
 |------|--------|
-| 1. Preflight | `git diff` / `git status` to scope changes, identify critical paths |
+| 0. Scope | MR link or ID via `glab`, else uncommitted changes, else the branch against its target |
+| 0b. Cache Check | Load the scope's cache from `.git/code-review/` if it exists, enter incremental mode (skipped with `--no-cache`) |
+| 1. Preflight | Identify critical paths in the scoped diff |
 | 2. SOLID + Architecture | Check against SOLID principles, layer integrity, flag violations |
 | 3. Removal Candidates | Identify dead code, deprecated APIs, stale flags, dead routes |
 | 4. Security + Reliability | XSS, injection, race conditions, secrets, auth gaps, file uploads |
 | 5. Code Quality | Error handling, async patterns, N+1, type safety, boundary conditions |
 | 6. Testing + API Design | Test coverage, test quality, API contracts, backward compatibility |
-| 7. Structured Output | P0–P3 report with `file:line` citations |
-| 8. Confirmation | Present findings, ask before applying any fix |
+| 7. Structured Output | P0–P3 report with `file:line` citations (+ ✅ Fixed / ⏳ Remaining / 🆕 New on re-runs) |
+| 8. Save Cache | Write the scope's cache with findings and diff fingerprints (skipped with `--no-cache`) |
+| 9. Confirmation | Present findings, ask before applying any fix |
+
+### Incremental re-review (re-runs)
+
+When you fix issues and run the review again, the plugin detects the cache and:
+- **Skips unchanged files** — carries forward cached findings without re-analyzing
+- **Targeted re-checks modified files** — verifies fixes and scans new diff hunks only
+- **Full reviews new files** — any file not in the previous review gets the complete treatment
+
+This saves significant tokens and time on follow-up reviews.
 
 ## Severity levels
 

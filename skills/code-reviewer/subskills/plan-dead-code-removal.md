@@ -1,6 +1,8 @@
 # Dead Code Removal Plan
 
 Identify and classify removal candidates from changed files.
+
+**Verification requirement**: Before flagging dead code, you MUST search the codebase for references using grep/rg. Check for dynamic usage (string-based imports, reflection, decorators, route registration, dependency injection, export maps). Only flag code as dead if you have confirmed zero live references.
 ---
 ## 1. Identify
 - Scan for:
@@ -41,7 +43,14 @@ Identify and classify removal candidates from changed files.
 - Documentation updated
 - Team notified (if shared code)
 ---
+## False positive filters
+- Do NOT flag exports that may be consumed by external packages or downstream repos
+- Do NOT flag lifecycle hooks, decorators, or convention-based methods (e.g., `onMount`, `beforeEach`, `__init__`)
+- Do NOT flag code referenced in config files, route tables, DI containers, or build scripts
+- Do NOT flag commented-out code in test files (often used as documentation of edge cases)
+- Do NOT flag unused function parameters that are required by an interface or callback signature
+---
 Severity:
 - P0 = removal blocks security fix or causes cost
-- P1 = remove in current sprint
+- P1 = remove in current sprint — confirmed zero references
 - P2 = backlog / next iteration

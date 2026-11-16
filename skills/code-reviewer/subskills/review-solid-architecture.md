@@ -1,6 +1,8 @@
 # SOLID & Architecture Review
 
 Check changed files for design violations and code smells.
+
+**Verification requirement**: Only report violations you can prove with a concrete scenario. Read the full file — not just the diff — before flagging. Respect the project's existing conventions; do not impose textbook SOLID on code that is reasonably structured for its context.
 ---
 ## 1. SRP (Single Responsibility)
 - Flag:
@@ -64,6 +66,14 @@ Check changed files for design violations and code smells.
 - Prefer composition over inheritance
 - Make illegal states unrepresentable via types
 ---
+## False positive filters
+- Do NOT flag SRP for files that mix concerns if that is the project's established pattern (e.g., controller files that do validation + routing in Express/Rails/Django)
+- Do NOT flag OCP for simple if/switch blocks with 2-3 branches — only flag when the pattern is clearly growing and hardening
+- Do NOT flag ISP for interfaces with <5 methods — only flag genuinely bloated interfaces
+- Do NOT flag DIP for direct imports of stable, well-known libraries (e.g., importing `fs`, `path`, `lodash`)
+- Do NOT flag code smells that are standard practice in the project's ecosystem
+- A file being "long" is not a violation — only flag if it genuinely mixes unrelated responsibilities
+---
 Severity:
-- P1 = design violation, must fix
-- P2 = code smell, improvement
+- P1 = design violation that causes real maintenance or correctness problems, must fix
+- P2 = code smell with a concrete downside, improvement

@@ -1,6 +1,11 @@
 # Quality & Performance Check
 
 Check changed files for error handling, performance, and boundary issues.
+
+**Verification requirement**: Before reporting, verify the issue is real in context:
+1. Check if error handling exists at a higher level (middleware, error boundary, caller)
+2. For performance flags, confirm the code is in a hot path — don't flag one-time startup code or admin endpoints
+3. For boundary conditions, check if the type system or validation layer already prevents the bad input
 ---
 ## 1. Error Handling
 - Flag:
@@ -107,7 +112,19 @@ Check changed files for error handling, performance, and boundary issues.
   - Date parsing without explicit format (locale-dependent)
   - DST transitions causing skipped/duplicate events
 ---
+## False positive filters
+- Do NOT flag "missing error handling" if a try/catch or error boundary exists higher in the call chain
+- Do NOT flag "swallowed exception" if the catch block handles the error appropriately for the context (e.g., returning a default, logging and continuing for non-critical ops)
+- Do NOT flag sequential awaits as "should be parallel" if the operations depend on each other or if parallelism isn't safe (e.g., DB transactions)
+- Do NOT flag "missing null check" when TypeScript strict null checks, required schema fields, or NOT NULL constraints guarantee the value
+- Do NOT flag "empty/null edge case" when the value is guaranteed by the app's initialization flow, route params, required props, or guards (e.g., `accountUser` loaded from URL params before component renders, `beforeEach` guard awaiting data fetch before navigation)
+- Do NOT flag "stale keys" or "unknown keys" when the API contract is bounded (e.g., backend returns exactly N known keys, no extra keys exist)
+- Do NOT flag "default value is wrong" when the default/fallback is never actually reached due to initialization order (e.g., `beforeEach` loads real data before any code reads the defaults)
+- Do NOT flag performance issues on code that runs once at startup, in tests, in CLI scripts, or on admin-only endpoints
+- Do NOT flag `arr[0]` as unsafe if the surrounding code already checks array length or the array is guaranteed non-empty
+- Do NOT flag "missing pagination" for internal queries with known bounded result sets
+---
 Severity:
-- P1 = logic bug, silent failure, perf regression
-- P2 = code smell, missing guard
-- P3 = minor boundary hardening
+- P1 = logic bug, silent failure, perf regression — with proof it actually happens
+- P2 = code smell, missing guard — with a concrete scenario
+- P3 = minor boundary hardening — only if realistic

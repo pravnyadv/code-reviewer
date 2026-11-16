@@ -1,6 +1,8 @@
 # Testing & API Design Validation
 
 Check changed files for test coverage gaps, test quality, and API contract issues.
+
+**Verification requirement**: Before flagging missing tests, check if the logic is covered by integration tests, e2e tests, or tests in a different file. Before flagging API issues, confirm the API is actually public-facing — internal APIs have different standards.
 ---
 ## Precondition
 - Before running checks, verify tests exist in the project:
@@ -68,7 +70,15 @@ Check changed files for test coverage gaps, test quality, and API contract issue
   - Deprecation warnings before removal
   - Versioned APIs for breaking changes
 ---
+## False positive filters
+- Do NOT flag "missing tests" for trivial getters/setters, DTOs, or pure config
+- Do NOT flag "missing tests" if the changed logic is covered by existing integration/e2e tests
+- Do NOT flag "over-mocking" for unit tests that intentionally isolate a specific layer
+- Do NOT flag API consistency issues against conventions that don't exist in the project (don't impose REST purism on an RPC-style API)
+- Do NOT flag "breaking API change" for internal APIs with no external consumers
+- Do NOT flag "missing pagination" for endpoints that return bounded result sets by design
+---
 Severity:
-- P1 = missing test for critical path, breaking API change
-- P2 = test quality issue, inconsistent API design
-- P3 = missing edge case test, naming inconsistency
+- P1 = missing test for critical path, breaking public API change — verified
+- P2 = test quality issue, inconsistent API design — with concrete impact
+- P3 = missing edge case test, naming inconsistency — only if realistic
