@@ -184,13 +184,12 @@ def claude(repo, prompt, schema, model, budget, label):
 
 
 def review_prompt(plan, lens, checklist_names, mr, files, recheck):
+    listed = ", ".join(f"`{f}`" for f in (files if files is not None else plan["changed_files"]))
     scope = (
-        f"the whole diff `git diff {plan['range']}`"
+        f"the diff of these files (generated files such as lock files are left out on purpose): {listed}"
         if files is None
-        else "ONLY these files' diffs (the rest of the branch was reviewed before and has not changed): "
-        + ", ".join(f"`{f}`" for f in files)
-        + f". Use `git diff {plan['range']} -- <file>`."
-    )
+        else f"ONLY these files' diffs (the rest of the branch was reviewed before and has not changed): {listed}"
+    ) + f". Use `git diff {plan['range']} -- <file>`."
     parts = [
         f"You are reviewing branch `{plan['branch']}` against `origin/{plan['target']}` in this repository, as a "
         f"senior engineer before it merges. Review {scope}",

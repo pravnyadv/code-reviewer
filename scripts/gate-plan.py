@@ -69,8 +69,13 @@ def default_target(repo):
     sys.exit("gate-plan: cannot tell the target branch; pass --target")
 
 
+# Generated or vendored files: nothing to review, and a lock file alone can be thousands of lines.
+SKIP = re.compile(r"(^|/)(vendor|node_modules)/|(^|/)(composer\.lock|package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$|"
+                  r"\.min\.(js|css)$|\.map$")
+
+
 def fingerprints(repo, rng):
-    files = [f for f in git_text(repo, "diff", "--name-only", rng).splitlines() if f]
+    files = [f for f in git_text(repo, "diff", "--name-only", rng).splitlines() if f and not SKIP.search(f)]
     return {f: hashlib.sha256(git(repo, "diff", rng, "--", f)).hexdigest() for f in files}
 
 
