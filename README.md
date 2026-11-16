@@ -73,6 +73,12 @@ Review a GitLab MR, or committed work on a branch before its MR exists:
 /code-reviewer --branch develop    # current branch vs origin/develop
 ```
 
+Gate mode, for a pre-MR check or CI: reviews the committed branch, finds its open MR by itself, runs two parallel review passes (runtime behaviour, and everything else), verifies every finding against the code, keeps a cache so the next run only reviews files whose diff changed, and ends with `Verdict: BLOCK` or `PASS`:
+```
+/code-reviewer --gate              # --fresh forces a full review, --target <branch> overrides the target
+```
+`scripts/gate-plan.py` makes the mechanical decisions (scope, range, cache, full or incremental), so they come out the same on every run.
+
 With a clean working tree and no MR, branch mode is the default. Add `--no-cache` for one-off or parallel runs (gates, CI) so nothing is read from or written to the cache.
 
 ### Natural language (auto-activation)
