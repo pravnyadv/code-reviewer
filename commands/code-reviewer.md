@@ -19,7 +19,10 @@ Say in one line which mode and range you are reviewing.
 ## 0b. Incremental Review Check (cache)
 - Skip this step entirely when the user passed `--no-cache` (use it for gates and for parallel runs, which would otherwise race on one file).
 - Cache file: `$(git rev-parse --git-dir)/code-review/<scope key>.json`, with `/` in the key replaced by `-`. It lives inside `.git`, so it is never committed and each worktree has its own. Ignore any old `.code-review-cache.json` in the project root.
-- **Fingerprint** of a file = SHA-256 of that file's FULL diff text in the current scope, e.g. `git diff origin/<target>...HEAD -- <file> | shasum -a 256` (branch mode), `git diff HEAD -- <file> | shasum -a 256` (working-tree mode), or the hash of that file's whole section of `glab mr diff` (MR mode). Never a prefix of the diff: a change further down the file must change the fingerprint.
+- **Fingerprint** of a file = SHA-256 of that file's FULL diff, always computed with git so every run gets the same value. Never a prefix of the diff: a change further down the file must change the fingerprint.
+  - Branch mode: `git diff origin/<target>...HEAD -- <file> | shasum -a 256`
+  - Working-tree mode: `git diff HEAD -- <file> | shasum -a 256`
+  - MR mode: `git fetch origin <target> <source>` (branches from `glab mr view`), then `git diff origin/<target>...origin/<source> -- <file> | shasum -a 256`. Do not hash slices of `glab mr diff` output: how it is split is not stable between runs.
 - **If the cache file exists (re-run):**
   - Read it, compute each in-scope file's fingerprint, and classify:
     - **unchanged**: same fingerprint, so carry its cached findings forward without re-analysis
