@@ -6,10 +6,10 @@ Review current git changes using a risk-first, incremental approach.
 When the arguments include `--gate`, do not review anything yourself. Run the gate script and show its output as it is:
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" --repo "$(git rev-parse --show-toplevel)" [--fresh] [--target <branch>]
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" [<MR link or !iid>] --repo "$(git rev-parse --show-toplevel)" [--fresh] [--target <branch>]
 ```
 
-(If `CLAUDE_PLUGIN_ROOT` is empty, the script is `../scripts/gate.py` relative to this file.) Pass `--fresh` or `--target` only when the user did. The script plans the scope, runs the review and verification as separate headless Claude calls, saves the cache and prints the findings and `Verdict: BLOCK` or `PASS` (exit 1 or 0; exit 2 means the gate itself failed, so report its message). It takes a few minutes on a full review; run it with a long timeout. Then stop: no extra review, no edits.
+(If `CLAUDE_PLUGIN_ROOT` is empty, the script is `../scripts/gate.py` relative to this file.) Pass the MR, `--fresh` or `--target` only when the user gave them; with an MR the script reviews it in a temporary worktree, so the user's checkout does not matter. The script plans the scope, runs the review and verification as separate headless Claude calls, saves the cache and prints the findings and `Verdict: BLOCK` or `PASS` (exit 1 or 0; exit 2 means the gate itself failed, so report its message). It takes a few minutes on a full review; run it with a long timeout. Then stop: no extra review, no edits.
 ---
 ## 0. Scope (decide this first)
 Pick exactly one scope from the arguments and the repo state:

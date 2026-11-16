@@ -13,7 +13,7 @@
             "name": "code-reviewer",
             "source": "./",
             "description": "Senior Code Reviewer \u2014 covers SOLID, security, performance, testing, API design with P0\u2013P3 severity ratings",
-            "version": "1.3.0",
+            "version": "1.4.0",
             "author": {
                 "name": "Dhiraj",
                 "homepage": "https://github.com/NisweyTech/code-reviewer"

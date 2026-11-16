@@ -7,11 +7,13 @@ files whose diff changed since the cached review).
 
     gate-plan.py [--repo DIR] [--target BRANCH] [--fresh]
     gate-plan.py [--repo DIR] [--target BRANCH] --save FINDINGS.json
+    (gate.py adds --branch NAME --mr-json JSON when it reviews an MR from a temporary worktree)
 
 The review range is always origin/<target>...HEAD, so a run before the MR
 exists and a run after it review the same diff and share one cache, keyed by
 the branch. An open GitLab MR for the branch only adds its id and description.
-The cache lives inside the git dir (never committed, one per worktree).
+The cache lives in the repository's common git dir, keyed by branch (never committed; shared by every worktree
+of the repo, including the temporary one an MR review uses).
 """
 import argparse
 import datetime
@@ -78,24 +80,28 @@ def main():
     ap.add_argument("--target")
     ap.add_argument("--fresh", action="store_true", help="ignore the cache: plan a full review")
     ap.add_argument("--save", metavar="FINDINGS_JSON", help="write the cache with these verified findings")
+    ap.add_argument("--branch", help="branch name to use for a detached checkout of it (MR review)")
+    ap.add_argument("--mr-json", help="the MR, already looked up (MR review)")
     a = ap.parse_args()
 
     repo = git_text(a.repo, "rev-parse", "--show-toplevel")
     dirty = [l for l in git_text(repo, "status", "--porcelain", "--untracked-files=no").splitlines() if l]
     if dirty:
         sys.exit("gate-plan: uncommitted changes; commit them first (the gate reviews committed work):\n" + "\n".join(dirty))
-    branch = git_text(repo, "rev-parse", "--abbrev-ref", "HEAD")
+    branch = a.branch or git_text(repo, "rev-parse", "--abbrev-ref", "HEAD")
     if branch == "HEAD":
         sys.exit("gate-plan: detached HEAD; check out the branch under review")
 
-    mr = open_mr(repo, branch)
+    mr = json.loads(a.mr_json) if a.mr_json else open_mr(repo, branch)
     target = a.target or (mr and mr["target"]) or default_target(repo)
     git(repo, "fetch", "--quiet", "origin", target)
     rng = f"origin/{target}...HEAD"
     prints = fingerprints(repo, rng)
     head = git_text(repo, "rev-parse", "--short", "HEAD")
 
-    cache_dir = os.path.join(git_text(repo, "rev-parse", "--absolute-git-dir"), "code-review")
+    common = git_text(repo, "rev-parse", "--git-common-dir")
+    common = common if os.path.isabs(common) else os.path.join(repo, common)
+    cache_dir = os.path.join(os.path.realpath(common), "code-review")
     cache_path = os.path.join(cache_dir, "branch-" + re.sub(r"[^A-Za-z0-9._-]", "-", branch) + ".json")
 
     if a.save:

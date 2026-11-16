@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Run the code-review gate on the current branch: plan, review, verify, save, verdict.
 
-    gate.py [--repo DIR] [--target BRANCH] [--fresh] [--model opus] [--review-budget 8] [--verify-budget 4]
+    gate.py [MR] [--repo DIR] [--target BRANCH] [--fresh] [--model opus] [--review-budget 8] [--verify-budget 4]
+
+With no MR, it reviews the branch checked out in --repo (a pre-MR check). With an MR (a GitLab link, `!438`
+or `438`), it reads the MR through glab, fetches the MR's head into a temporary worktree of --repo, reviews
+that, and removes the worktree, so any checkout of the repository can review anyone's MR.
 
 Everything mechanical happens here, in the same order on every run. Claude is called only for the two
 judgment steps, each as its own headless `claude -p` call with a JSON schema for its answer:
@@ -19,6 +23,8 @@ import argparse
 import concurrent.futures
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -207,8 +213,31 @@ def verify_prompt(plan, mr, findings):
     ]))
 
 
+def checkout_mr(repo, ref):
+    """Look the MR up with glab and check its head out into a temporary worktree: (dir, branch, mr)."""
+    out = subprocess.run(["glab", "mr", "view", ref, "-F", "json"], cwd=repo, capture_output=True, text=True)
+    if out.returncode != 0:
+        fail(f"glab could not read MR {ref}: {(out.stderr or out.stdout).strip()[:400]}")
+    data = json.loads(out.stdout)
+    iid = data["iid"]
+    # GitLab publishes every MR's head (fork MRs included) as refs/merge-requests/<iid>/head.
+    fetched = subprocess.run(["git", "-C", repo, "fetch", "--quiet", "origin",
+                              f"refs/merge-requests/{iid}/head", data["target_branch"]], capture_output=True, text=True)
+    if fetched.returncode != 0:
+        fail(f"could not fetch MR !{iid}: {fetched.stderr.strip()[:400]}")
+    head = subprocess.run(["git", "-C", repo, "rev-parse", "FETCH_HEAD"], capture_output=True, text=True).stdout.split()[0]
+    work = os.path.join(tempfile.gettempdir(), f"code-review-mr-{iid}-{os.getpid()}")
+    added = subprocess.run(["git", "-C", repo, "worktree", "add", "--quiet", "--detach", work, head],
+                           capture_output=True, text=True)
+    if added.returncode != 0:
+        fail(f"could not create the review worktree: {added.stderr.strip()[:400]}")
+    mr = {"iid": iid, "url": data.get("web_url"), "target": data["target_branch"], "title": data.get("title")}
+    return work, data["source_branch"], mr
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("mr", nargs="?", help="GitLab MR link, !iid or iid (default: the checked-out branch)")
     ap.add_argument("--repo", default=os.getcwd())
     ap.add_argument("--target")
     ap.add_argument("--fresh", action="store_true", help="ignore the cache and review everything")
@@ -216,15 +245,28 @@ def main():
     ap.add_argument("--review-budget", type=float, default=8.0, help="USD cap per review call")
     ap.add_argument("--verify-budget", type=float, default=4.0, help="USD cap for the verify call")
     a = ap.parse_args()
+    a.repo = subprocess.run(["git", "-C", a.repo, "rev-parse", "--show-toplevel"],
+                            capture_output=True, text=True).stdout.strip() or fail(f"{a.repo} is not a git repository")
+    if not a.mr:
+        run(a, a.repo, [])
+        return
+    work, branch, mr = checkout_mr(a.repo, re.sub(r"^!", "", a.mr))
+    try:
+        run(a, work, ["--branch", branch, "--mr-json", json.dumps(mr), "--target", a.target or mr["target"]])
+    finally:
+        subprocess.run(["git", "-C", a.repo, "worktree", "remove", "--force", work], capture_output=True)
+        shutil.rmtree(work, ignore_errors=True)
 
-    plan_cmd = [sys.executable, os.path.join(HERE, "gate-plan.py"), "--repo", a.repo]
-    plan_cmd += ["--target", a.target] if a.target else []
+
+def run(a, repo, extra):
+    """Plan, review, verify, save and report for the checkout at `repo`."""
+    plan_cmd = [sys.executable, os.path.join(HERE, "gate-plan.py"), "--repo", repo, *extra]
+    plan_cmd += ["--target", a.target] if a.target and "--target" not in extra else []
     plan_cmd += ["--fresh"] if a.fresh else []
     out = subprocess.run(plan_cmd, capture_output=True, text=True)
     if out.returncode != 0:
         fail((out.stderr or out.stdout).strip())
     plan = json.loads(out.stdout)
-    repo = subprocess.run(["git", "-C", a.repo, "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip()
     mr = plan.get("mr")
     head = (f"Gate: {plan['plan']} on {plan['range']} ({plan['branch']}"
             + (f", MR !{mr['iid']}" if mr else "") + f") · files {plan['files']}")
@@ -276,8 +318,9 @@ def main():
         f.setdefault("description", f.get("scenario", ""))
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
         json.dump(final, fh)
-    saved = subprocess.run([sys.executable, os.path.join(HERE, "gate-plan.py"), "--repo", a.repo,
-                            *(["--target", a.target] if a.target else []), "--save", fh.name],
+    saved = subprocess.run([sys.executable, os.path.join(HERE, "gate-plan.py"), "--repo", repo, *extra,
+                            *(["--target", a.target] if a.target and "--target" not in extra else []),
+                            "--save", fh.name],
                            capture_output=True, text=True)
     os.unlink(fh.name)
     if saved.returncode != 0:
