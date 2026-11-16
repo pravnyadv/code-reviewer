@@ -77,7 +77,10 @@ Gate mode, for a pre-MR check or CI: reviews the committed branch, finds its ope
 ```
 /code-reviewer --gate              # --fresh forces a full review, --target <branch> overrides the target
 ```
-`scripts/gate-plan.py` makes the mechanical decisions (scope, range, cache, full or incremental), so they come out the same on every run.
+The gate is a script, `scripts/gate.py`, so it runs the same way every time: it plans (`scripts/gate-plan.py`: scope, range, cache, full or incremental), runs each review pass and the verification as separate read-only `claude -p` calls with a JSON schema and a cost cap, saves the cache and exits 0 (PASS), 1 (BLOCK) or 2 (the gate failed). Pre-MR hooks and CI can call it directly:
+```
+python3 <plugin>/scripts/gate.py --repo .   # --fresh, --target <branch>, --model, --review-budget, --verify-budget
+```
 
 With a clean working tree and no MR, branch mode is the default. Add `--no-cache` for one-off or parallel runs (gates, CI) so nothing is read from or written to the cache.
 

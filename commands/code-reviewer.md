@@ -3,32 +3,13 @@
 Review current git changes using a risk-first, incremental approach.
 ---
 ## Gate mode (`--gate`): pre-MR and CI use
-When the arguments include `--gate`, follow THIS section instead of Steps 0-9 (it reuses Steps 2-6's checklists and the Verification Rules below). It reviews the committed branch, finds an open MR by itself, keeps a cache across runs, and ends with a blocking verdict. Never edit code, commit or post in gate mode.
+When the arguments include `--gate`, do not review anything yourself. Run the gate script and show its output as it is:
 
-**G1. Plan.** Run the plan script from the plugin root (`${CLAUDE_PLUGIN_ROOT}/scripts/gate-plan.py`; if that variable is empty, `../scripts/gate-plan.py` relative to this file): `python3 <script> --repo <repo root>` (add `--fresh` when the user passed `--fresh`, `--target <branch>` when they named one). It prints JSON: `plan`, `mode`, `mr`, `range`, `changed_files`, `carried_findings`, `recheck_findings`, `resolved_findings`. If it exits non-zero (uncommitted changes, detached HEAD), report its message and stop. Do not re-derive any of this yourself.
-- `nothing` / `up-to-date`: print the carried findings and the verdict (G5), and stop. No review agents.
-- If `mode` is `mr`: read `glab mr view <iid>` once. Its description (intent, deploy steps) goes to every review agent, so they do not flag what it already handles.
-
-**G2. Review.** Read the five subskills once. Then give review agents everything they need in their prompt (range, file list, MR description, the relevant checklist text, the Verification Rules), so none of them re-runs scoping or re-reads the protocol. Use the most capable model available for every review agent; a smaller model misses the cross-file bugs this gate exists for.
-- **`full-parallel`**: start TWO review agents in one message, on the whole range, each with a different lens:
-  - **A, runtime behaviour**: concurrency and races; queue jobs (compare each job's `timeout`/time budget with the queue connection's `retry_after`/visibility timeout, check `tries`, backoff, uniqueness, what re-delivery does); time windows and cut-offs (both ends of every window, clock sources and precision, items in flight at the boundary); idempotency and dedupe keys (does every path that writes the same external record build the same id?); return contracts: first list every call in the added code whose result is discarded or only partly used (a bare statement call, a result never checked), then open each callee and note whether it signals failure by throwing or by returning false/null/an error object; a returned failure the caller ignores is a finding, and so is a retry setting (`tries`, backoff) that can never fire because nothing throws; retries, continuations and failure handlers; data that can be lost or duplicated.
-  - **B, everything else** in Steps 2-6: security and authorization, architecture/SOLID, error handling, performance and N+1, API design, dead code, tests.
-  - Each agent may report anything it finds, but spends its effort on its lens, reads code outside the diff (config, callers, wrappers) whenever a claim depends on it, and returns findings only as JSON: `[{"file","line","severity","title","scenario","fix","evidence"}]`, where `evidence` names the file:line or command output that proves it.
-- **`incremental`**: ONE review agent with both lenses, scoped to `changed_files` only (still reading outside code as needed). Also give it `recheck_findings` and ask, for each, `fixed` or `still open` with evidence. Findings in `carried_findings` are kept as they are: do not re-review unchanged files.
-
-**G3. Verify (you, not an agent).** Merge the agents' findings and drop duplicates (same root cause = one finding). For each remaining finding, open the cited code and check the claim yourself: the cited lines exist and say what is claimed, the scenario is reachable through the real call path, and nothing elsewhere already handles it (middleware, framework, the MR description). Read only what the claim needs. Keep it as `verified`, move it to `unverified` with what would settle it, or drop it with a one-line reason.
-
-**G4. Save.** Write the final findings (verified plus unverified, each with `id`, `file`, `line`, `severity`, `title`, `description`, `fix`, `status`: `open` or `unverified`; plus still-open carried and recheck findings) to a temp JSON file, then run `python3 <script> --repo <repo root> --save <that file>`. Never write the cache any other way.
-
-**G5. Output.**
 ```
-Gate: <plan> on <range> (<mode>, MR !<iid> if any) · files <n> · reviewed <changed> · carried <n>
-P0 / P1 / P2 / P3 findings: [file:line] **Title**: scenario. **Fix**: suggestion. (verified)
-Unverified: <finding, what would settle it>
-Fixed since last review: <ids>
-Dropped: <count> (<one-line reasons>)
-Verdict: BLOCK (a verified P0 or P1 is open) | PASS
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gate.py" --repo "$(git rev-parse --show-toplevel)" [--fresh] [--target <branch>]
 ```
+
+(If `CLAUDE_PLUGIN_ROOT` is empty, the script is `../scripts/gate.py` relative to this file.) Pass `--fresh` or `--target` only when the user did. The script plans the scope, runs the review and verification as separate headless Claude calls, saves the cache and prints the findings and `Verdict: BLOCK` or `PASS` (exit 1 or 0; exit 2 means the gate itself failed, so report its message). It takes a few minutes on a full review; run it with a long timeout. Then stop: no extra review, no edits.
 ---
 ## 0. Scope (decide this first)
 Pick exactly one scope from the arguments and the repo state:
