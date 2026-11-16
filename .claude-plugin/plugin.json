@@ -1,7 +1,7 @@
 {
   "name": "code-reviewer",
-  "version": "1.1.0",
-  "description": "Code Reviewer: Reviews your code to find design problems, security risks, slow parts, timing issues between processes, weak error handling, and edge case bugs — helping you make your code safer, faster, and more reliable.",
+  "version": "1.1.1",
+  "description": "Code Reviewer: Reviews your code to find design problems, security risks, slow parts, timing issues between processes, weak error handling, and edge case bugs \u2014 helping you make your code safer, faster, and more reliable.",
   "author": {
     "name": "Dhiraj",
     "url": "https://github.com/nisweytech/code-reviewer"
