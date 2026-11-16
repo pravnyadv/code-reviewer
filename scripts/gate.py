@@ -107,9 +107,14 @@ LENS_A = """LENS A, runtime behaviour. Spend your effort here:
   statement call, a result never checked), open each callee, and note whether it signals failure by throwing or by
   returning false/null/an error object. A returned failure the caller ignores is a finding, and so is a retry setting
   (`tries`, backoff) that can never fire because nothing throws.
-- Time windows and cut-offs: both ends of every window, which clock each side uses and its precision, and items in
-  flight at the boundary (created before the cut-off, updated after it).
-- Idempotency and dedupe: when two code paths write the same external record, do they build the same id?
+- Time windows: list every query or filter in the added code on a time or sequence column (created_at, time, ids
+  used as cursors). For each, write down its lower bound, its upper bound (or that it has none), which clock or
+  source each bound comes from and its precision, and which OTHER code paths write rows into that range while this
+  code runs (the live path, a sweep, a retry). Rows that both this code and another path handle, or that fall just
+  outside a bound, are findings.
+- Idempotency and dedupe: list every external record the added code creates or updates (API events, messages, rows
+  in another system). For each, find every other code path that writes the same record and compare the id or dedupe
+  key each one builds. Two paths that build different keys for the same thing produce duplicates; that is a finding.
 - Concurrency and races, continuations and failure handlers, data that can be lost or duplicated."""
 
 LENS_B = """LENS B, everything else: security and authorization, architecture and design, error handling,
