@@ -28,6 +28,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -121,6 +122,14 @@ LENS_B = """LENS B, everything else: security and authorization, architecture an
 performance and N+1 queries, API design and backward compatibility, dead code, and tests."""
 
 
+START = time.time()
+
+
+def progress(message):
+    """One live status line on stderr, so a caller sees where the gate is while it runs."""
+    print(f"[gate {int(time.time() - START):>4}s] {message}", file=sys.stderr, flush=True)
+
+
 def fail(message):
     print(f"❌ gate: {message}", file=sys.stderr)
     sys.exit(2)
@@ -149,8 +158,10 @@ def mr_text(repo, mr):
     return body[:8000]
 
 
-def claude(repo, prompt, schema, model, budget):
+def claude(repo, prompt, schema, model, budget, label):
     """One headless, read-only Claude call; returns (structured_output, cost)."""
+    started = time.time()
+    progress(f"{label}: started ({model}, cap ${budget:.0f})")
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     cmd = [
         "claude", "-p", prompt, "--model", model, "--output-format", "json",
@@ -166,7 +177,9 @@ def claude(repo, prompt, schema, model, budget):
     cost = float(data.get("total_cost_usd") or 0)
     result = data.get("structured_output")
     if data.get("is_error") or result is None:
-        fail(f"claude call failed ({data.get('subtype')}, ${cost:.2f}): {str(data.get('result'))[-600:]}")
+        fail(f"{label} failed ({data.get('subtype')}, ${cost:.2f}): {str(data.get('result'))[-600:]}")
+    found = len(result.get("findings", []))
+    progress(f"{label}: done in {int(time.time() - started)}s, ${cost:.2f}, {found} finding(s)")
     return result, cost
 
 
@@ -255,6 +268,7 @@ def main():
     if not a.mr:
         run(a, a.repo, [])
         return
+    progress(f"reading MR {a.mr} and checking out its head in a temporary worktree")
     work, branch, mr = checkout_mr(a.repo, re.sub(r"^!", "", a.mr))
     try:
         run(a, work, ["--branch", branch, "--mr-json", json.dumps(mr), "--target", a.target or mr["target"]])
@@ -273,6 +287,8 @@ def run(a, repo, extra):
         fail((out.stderr or out.stdout).strip())
     plan = json.loads(out.stdout)
     mr = plan.get("mr")
+    progress(f"plan: {plan['plan']} ({plan['why']}), {plan['files']} file(s) on {plan['range']}"
+             + (f", MR !{mr['iid']}" if mr else ""))
     head = (f"Gate: {plan['plan']} on {plan['range']} ({plan['branch']}"
             + (f", MR !{mr['iid']}" if mr else "") + f") · files {plan['files']}")
 
@@ -295,7 +311,8 @@ def run(a, repo, extra):
         ]
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             jobs = [pool.submit(claude, repo, review_prompt(plan, lens, names, mr_body, None, []),
-                                REVIEW_SCHEMA, a.model, a.review_budget) for lens, names in calls]
+                                REVIEW_SCHEMA, a.model, a.review_budget, label)
+                    for (lens, names), label in zip(calls, ["review A (runtime behaviour)", "review B (everything else)"])]
             results = [j.result() for j in jobs]
         raw = [f for r, _ in results for f in r["findings"]]
         cost += sum(c for _, c in results)
@@ -304,7 +321,7 @@ def run(a, repo, extra):
         recheck = plan["recheck_findings"]
         result, c = claude(repo, review_prompt(plan, LENS_A + "\n\n" + LENS_B, every, mr_body,
                                                plan["changed_files"], recheck),
-                           REVIEW_SCHEMA, a.model, a.review_budget)
+                           REVIEW_SCHEMA, a.model, a.review_budget, f"review ({len(plan['changed_files'])} changed file(s))")
         cost += c
         raw = result["findings"]
         status = {r["id"]: r["status"] for r in result.get("recheck", [])}
@@ -313,7 +330,8 @@ def run(a, repo, extra):
 
     verified, dropped = [], []
     if raw:
-        result, c = claude(repo, verify_prompt(plan, mr_body, raw), VERIFY_SCHEMA, a.model, a.verify_budget)
+        result, c = claude(repo, verify_prompt(plan, mr_body, raw), VERIFY_SCHEMA, a.model, a.verify_budget,
+                           f"verify ({len(raw)} finding(s))")
         cost += c
         verified, dropped = result["findings"], result["dropped"]
 
@@ -330,6 +348,7 @@ def run(a, repo, extra):
     os.unlink(fh.name)
     if saved.returncode != 0:
         fail("could not save the cache: " + (saved.stderr or saved.stdout).strip())
+    progress("cache saved")
 
     report(head + f" · reviewed {len(plan['changed_files'])} · carried {len(carried)}",
            final, dropped, [f for f in final if f.get("status") == "unverified"], fixed_ids, cost)
