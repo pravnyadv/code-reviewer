@@ -116,6 +116,14 @@ LENS_A = """LENS A, runtime behaviour. Spend your effort here:
 - Idempotency and dedupe: list every external record the added code creates or updates (API events, messages, rows
   in another system). For each, find every other code path that writes the same record and compare the id or dedupe
   key each one builds. Two paths that build different keys for the same thing produce duplicates; that is a finding.
+- Nulls in orderings and filters: list every ORDER BY, WHERE, join and max/min the added code runs. For each column,
+  find every path that writes it and whether any leaves it null or unset (seeds, imports, legacy rows), and write
+  down what null means there (often "never happened"). A null row that is ranked, matched or picked when it should
+  be excluded, or excluded when it should count, is a finding.
+- The moment of deploy: list what already exists when this code goes live. Queued or scheduled jobs whose class,
+  method or payload is removed or changed; stored or cached data in the old shape; existing callers of a changed
+  contract (status code, response fields, route, event), searched in every consumer including sibling repos you can
+  read; state left behind by removed code. Each one needs a code fix or a deploy step in the MR description.
 - Concurrency and races, continuations and failure handlers, data that can be lost or duplicated."""
 
 LENS_B = """LENS B, everything else: security and authorization, architecture and design, error handling,
