@@ -126,8 +126,16 @@ LENS_A = """LENS A, runtime behaviour. Spend your effort here:
   read; state left behind by removed code. Each one needs a code fix or a deploy step in the MR description.
 - Concurrency and races, continuations and failure handlers, data that can be lost or duplicated."""
 
-LENS_B = """LENS B, everything else: security and authorization, architecture and design, error handling,
-performance and N+1 queries, API design and backward compatibility, dead code, and tests."""
+LENS_B = """LENS B, everything else. First these two, listing every instance before checking it:
+- Guards that fail open: for every route, endpoint, job or action the change guards or touches, follow the real
+  caller's request (the headers and body the real client sends, e.g. a bearer token) through the BODY of each
+  middleware, guard or policy to the protected line. A guard that passes when its input is missing or unset is open;
+  an access rule changed as a side effect is a finding. That a middleware is registered proves nothing.
+- Tests that cannot fail: for every added or changed test, check its fixtures match the real schema and signatures,
+  that it does not depend on the network or other unfaked outside state, and that its assertions would fail if the
+  behaviour it names broke.
+Then: security and authorization, architecture and design, error handling, performance and N+1 queries, API design
+and backward compatibility, dead code."""
 
 
 START = time.time()
@@ -231,8 +239,10 @@ def verify_prompt(plan, mr, findings):
         "the MR description) already handles it. Read only what each claim needs. Do not edit anything.",
         "Merge duplicates (same root cause) into one. Keep a finding as `verified` when you confirmed it, "
         "`unverified` with `settle` (what would decide it) when you cannot tell, and put it in `dropped` with a "
-        "one-line reason when it is wrong or already handled. You may correct a severity, line or fix; keep "
-        "titles short.",
+        "one-line reason when it is wrong or already handled. A drop must show the problem cannot happen: "
+        "'rare', 'transient', 'low volume' or 'cosmetic' is not a reason; lower the severity instead (P3), and "
+        "anything that blocks the only manual way to check or recover something is never cosmetic. You may "
+        "correct a severity, line or fix; keep titles short.",
         ("MR description:\n\n" + mr) if mr else "",
         "Findings:\n" + json.dumps(findings, indent=1),
     ]))
