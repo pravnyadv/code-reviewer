@@ -11,7 +11,8 @@ Everything mechanical happens here, in the same order on every run. Claude is ca
 judgment steps, each as its own headless `claude -p` call with a JSON schema for its answer:
 
   1. plan     scripts/gate-plan.py picks the range, the open MR, the cache, and full vs incremental
-  2. review   full: two calls in parallel (A runtime behaviour, B everything else) on the whole range
+  2. review   full: two calls in parallel (A runtime behaviour, B everything else) on the whole range;
+              --runs N repeats each call N times and verifies the union
               incremental: one call with both lenses, on the changed files only, re-checking old findings
   3. verify   one fresh call checks every finding against the code, merges duplicates, drops what fails
   4. save     scripts/gate-plan.py --save writes the cache, so the next run only reviews what changed
@@ -291,6 +292,8 @@ def main():
     ap.add_argument("--model", default="opus")
     ap.add_argument("--review-budget", type=float, default=8.0, help="USD cap per review call")
     ap.add_argument("--verify-budget", type=float, default=4.0, help="USD cap for the verify call")
+    ap.add_argument("--runs", type=int, default=1,
+                    help="run each review call N times and verify the union (one run misses bugs another catches)")
     a = ap.parse_args()
     a.repo = subprocess.run(["git", "-C", a.repo, "rev-parse", "--show-toplevel"],
                             capture_output=True, text=True).stdout.strip() or fail(f"{a.repo} is not a git repository")
@@ -339,23 +342,30 @@ def run(a, repo, extra):
             (LENS_A, ["audit-security-reliability", "check-quality-performance"]),
             (LENS_B, every),
         ]
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        labels = ["review A (runtime behaviour)", "review B (everything else)"]
+        runs = [(lens, names, label + (f" run {n}" if a.runs > 1 else ""))
+                for n in range(1, a.runs + 1) for (lens, names), label in zip(calls, labels)]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(runs)) as pool:
             jobs = [pool.submit(claude, repo, review_prompt(plan, lens, names, mr_body, None, []),
                                 REVIEW_SCHEMA, a.model, a.review_budget, label)
-                    for (lens, names), label in zip(calls, ["review A (runtime behaviour)", "review B (everything else)"])]
+                    for lens, names, label in runs]
             results = [j.result() for j in jobs]
         raw = [f for r, _ in results for f in r["findings"]]
         cost += sum(c for _, c in results)
         reopened = []
     else:  # incremental
         recheck = plan["recheck_findings"]
-        result, c = claude(repo, review_prompt(plan, LENS_A + "\n\n" + LENS_B, every, mr_body,
-                                               plan["changed_files"], recheck),
-                           REVIEW_SCHEMA, a.model, a.review_budget, f"review ({len(plan['changed_files'])} changed file(s))")
-        cost += c
-        raw = result["findings"]
-        status = {r["id"]: r["status"] for r in result.get("recheck", [])}
-        fixed_ids = [f["id"] for f in recheck if status.get(f.get("id")) == "fixed"]
+        prompt = review_prompt(plan, LENS_A + "\n\n" + LENS_B, every, mr_body, plan["changed_files"], recheck)
+        label = f"review ({len(plan['changed_files'])} changed file(s))"
+        with concurrent.futures.ThreadPoolExecutor(max_workers=a.runs) as pool:
+            jobs = [pool.submit(claude, repo, prompt, REVIEW_SCHEMA, a.model, a.review_budget,
+                                label + (f" run {n}" if a.runs > 1 else "")) for n in range(1, a.runs + 1)]
+            results = [j.result() for j in jobs]
+        cost += sum(c for _, c in results)
+        raw = [f for r, _ in results for f in r["findings"]]
+        # an old finding counts as fixed only when every run says so
+        statuses = [{x["id"]: x["status"] for x in r.get("recheck", [])} for r, _ in results]
+        fixed_ids = [f["id"] for f in recheck if all(st.get(f.get("id")) == "fixed" for st in statuses)]
         reopened = [f for f in recheck if status.get(f.get("id")) != "fixed"]
 
     verified, dropped = [], []
