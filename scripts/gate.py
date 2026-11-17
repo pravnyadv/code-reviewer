@@ -120,6 +120,11 @@ LENS_A = """LENS A, runtime behaviour. Spend your effort here:
   find every path that writes it and whether any leaves it null or unset (seeds, imports, legacy rows), and write
   down what null means there (often "never happened"). A null row that is ranked, matched or picked when it should
   be excluded, or excluded when it should count, is a finding.
+- Meanings the code assumes: list every external error code, subcode, status or message the added code branches on,
+  and every null it reads as a state. Write down the meaning the code gives it, then check that meaning against the
+  source that defines it (vendor docs or the error text itself, the code path that writes the value, the schema),
+  never the code's own comments ("proven live", "means already assigned", "null = never happened"). A meaning that
+  is unproven or contradicted, where a wrong reading fails silently, is a finding.
 - The moment of deploy: list what already exists when this code goes live. Queued or scheduled jobs whose class,
   method or payload is removed or changed; stored or cached data in the old shape; existing callers of a changed
   contract (status code, response fields, route, event), searched in every consumer including sibling repos you can
