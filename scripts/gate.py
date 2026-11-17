@@ -257,6 +257,7 @@ def main():
     ap.add_argument("mr", nargs="?", help="GitLab MR link, !iid or iid (default: the checked-out branch)")
     ap.add_argument("--repo", default=os.getcwd())
     ap.add_argument("--target")
+    ap.add_argument("--base", help="review against this fixed commit instead of origin/<target>")
     ap.add_argument("--fresh", action="store_true", help="ignore the cache and review everything")
     ap.add_argument("--model", default="opus")
     ap.add_argument("--review-budget", type=float, default=8.0, help="USD cap per review call")
@@ -281,6 +282,7 @@ def run(a, repo, extra):
     plan_cmd = [sys.executable, os.path.join(HERE, "gate-plan.py"), "--repo", repo, *extra]
     plan_cmd += ["--target", a.target] if a.target and "--target" not in extra else []
     plan_cmd += ["--fresh"] if a.fresh else []
+    plan_cmd += ["--base", a.base] if a.base else []
     out = subprocess.run(plan_cmd, capture_output=True, text=True)
     if out.returncode != 0:
         fail((out.stderr or out.stdout).strip())
@@ -342,7 +344,7 @@ def run(a, repo, extra):
         json.dump(final, fh)
     saved = subprocess.run([sys.executable, os.path.join(HERE, "gate-plan.py"), "--repo", repo, *extra,
                             *(["--target", a.target] if a.target and "--target" not in extra else []),
-                            "--save", fh.name],
+                            *(["--base", a.base] if a.base else []), "--save", fh.name],
                            capture_output=True, text=True)
     os.unlink(fh.name)
     if saved.returncode != 0:

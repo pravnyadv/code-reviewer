@@ -87,6 +87,7 @@ def main():
     ap.add_argument("--save", metavar="FINDINGS_JSON", help="write the cache with these verified findings")
     ap.add_argument("--branch", help="branch name to use for a detached checkout of it (MR review)")
     ap.add_argument("--mr-json", help="the MR, already looked up (MR review)")
+    ap.add_argument("--base", help="review against this fixed commit instead of origin/<target> (a past MR version)")
     a = ap.parse_args()
 
     repo = git_text(a.repo, "rev-parse", "--show-toplevel")
@@ -99,8 +100,11 @@ def main():
 
     mr = json.loads(a.mr_json) if a.mr_json else open_mr(repo, branch)
     target = a.target or (mr and mr["target"]) or default_target(repo)
-    git(repo, "fetch", "--quiet", "origin", target)
-    rng = f"origin/{target}...HEAD"
+    if a.base:
+        rng = f"{a.base}...HEAD"
+    else:
+        git(repo, "fetch", "--quiet", "origin", target)
+        rng = f"origin/{target}...HEAD"
     prints = fingerprints(repo, rng)
     head = git_text(repo, "rev-parse", "--short", "HEAD")
 
