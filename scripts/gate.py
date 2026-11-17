@@ -24,6 +24,7 @@ import argparse
 import concurrent.futures
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -206,13 +207,16 @@ def claude(repo, prompt, schema, model, budget, label):
     return result, cost
 
 
-def review_prompt(plan, lens, checklist_names, mr, files, recheck):
-    listed = ", ".join(f"`{f}`" for f in (files if files is not None else plan["changed_files"]))
+def review_prompt(plan, lens, checklist_names, mr, files, recheck, run=1):
+    ordered = list(files if files is not None else plan["changed_files"])
+    if run > 1:  # each repeated run reads the diff in a different order, so the runs reason differently
+        random.Random(run).shuffle(ordered)
+    listed = ", ".join(f"`{f}`" for f in ordered)
     scope = (
         f"the diff of these files (generated files such as lock files are left out on purpose): {listed}"
         if files is None
         else f"ONLY these files' diffs (the rest of the branch was reviewed before and has not changed): {listed}"
-    ) + f". Use `git diff {plan['range']} -- <file>`."
+    ) + f". Use `git diff {plan['range']} -- <file>`, reading the files in the order listed."
     parts = [
         f"You are reviewing branch `{plan['branch']}` against `origin/{plan['target']}` in this repository, as a "
         f"senior engineer before it merges. Review {scope}",
@@ -231,8 +235,11 @@ def review_prompt(plan, lens, checklist_names, mr, files, recheck):
             + json.dumps(recheck, indent=1)
         )
     parts.append(
-        "Return every finding that survives the verification rules, each with a concrete reachable scenario and "
-        "the evidence (file:line) that proves it. Return an empty list if there are none."
+        "This gate overrides two of the rules above: 'if in doubt, leave it out' and 'drop the finding' when you "
+        "cannot build a scenario. A separate verifier checks every finding against the code afterwards and drops "
+        "what fails, so a missed bug costs more here than a false lead. Report every suspicious pattern you found, "
+        "each with the reachable scenario as far as you got it, the evidence (file:line), and plainly what you "
+        "could not confirm. Return an empty list only if nothing looked suspicious."
     )
     return "\n\n---\n\n".join(parts)
 
@@ -343,22 +350,23 @@ def run(a, repo, extra):
             (LENS_B, every),
         ]
         labels = ["review A (runtime behaviour)", "review B (everything else)"]
-        runs = [(lens, names, label + (f" run {n}" if a.runs > 1 else ""))
+        runs = [(lens, names, n, label + (f" run {n}" if a.runs > 1 else ""))
                 for n in range(1, a.runs + 1) for (lens, names), label in zip(calls, labels)]
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(runs)) as pool:
-            jobs = [pool.submit(claude, repo, review_prompt(plan, lens, names, mr_body, None, []),
+            jobs = [pool.submit(claude, repo, review_prompt(plan, lens, names, mr_body, None, [], n),
                                 REVIEW_SCHEMA, a.model, a.review_budget, label)
-                    for lens, names, label in runs]
+                    for lens, names, n, label in runs]
             results = [j.result() for j in jobs]
         raw = [f for r, _ in results for f in r["findings"]]
         cost += sum(c for _, c in results)
         reopened = []
     else:  # incremental
         recheck = plan["recheck_findings"]
-        prompt = review_prompt(plan, LENS_A + "\n\n" + LENS_B, every, mr_body, plan["changed_files"], recheck)
         label = f"review ({len(plan['changed_files'])} changed file(s))"
         with concurrent.futures.ThreadPoolExecutor(max_workers=a.runs) as pool:
-            jobs = [pool.submit(claude, repo, prompt, REVIEW_SCHEMA, a.model, a.review_budget,
+            jobs = [pool.submit(claude, repo, review_prompt(plan, LENS_A + "\n\n" + LENS_B, every, mr_body,
+                                                            plan["changed_files"], recheck, n),
+                                REVIEW_SCHEMA, a.model, a.review_budget,
                                 label + (f" run {n}" if a.runs > 1 else "")) for n in range(1, a.runs + 1)]
             results = [j.result() for j in jobs]
         cost += sum(c for _, c in results)
