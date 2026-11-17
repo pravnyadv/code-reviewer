@@ -237,6 +237,11 @@ def verify_prompt(plan, mr, findings):
         "For each finding: open the cited code and what it depends on; confirm the cited lines say what is claimed, "
         "the scenario is reachable through the real call path, and nothing elsewhere (framework, middleware, config, "
         "the MR description) already handles it. Read only what each claim needs. Do not edit anything.",
+        "Do not take the code's own comments as proof of what an external error code, status, message or a null value "
+        "means (\"proven live\", \"means already assigned\", \"null = never happened\"). Check the source that defines "
+        "it (vendor docs, the writing code path, the schema) or treat the meaning as unproven. Where the code's "
+        "reading of such a value is unproven and a wrong reading fails silently, that is itself a finding, not a "
+        "reason to drop one.",
         "Merge duplicates (same root cause) into one. Keep a finding as `verified` when you confirmed it, "
         "`unverified` with `settle` (what would decide it) when you cannot tell, and put it in `dropped` with a "
         "one-line reason when it is wrong or already handled. A drop must show the problem cannot happen: "
