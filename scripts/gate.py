@@ -117,8 +117,9 @@ LENS_A = """LENS A, runtime behaviour. Spend your effort here:
   in another system). For each, find every other code path that writes the same record and compare the id or dedupe
   key each one builds. Two paths that build different keys for the same thing produce duplicates; that is a finding.
 - Nulls in orderings and filters: list every ORDER BY, WHERE, join and max/min the added code runs. For each column,
-  find every path that writes it and whether any leaves it null or unset (seeds, imports, legacy rows), and write
-  down what null means there (often "never happened"). A null row that is ranked, matched or picked when it should
+  search the code for every path that writes it (inserts, creates, upserts, raw SQL, imports) and name each one
+  with its file:line and whether it sets the column, before saying anything about where nulls come from; never call
+  them "legacy" or "old rows" without that list. Then write down what null means there (often "never happened"). A null row that is ranked, matched or picked when it should
   be excluded, or excluded when it should count, is a finding.
 - Meanings the code assumes: list every external error code, subcode, status or message the added code branches on,
   and every null it reads as a state. Write down the meaning the code gives it, then check that meaning against the
