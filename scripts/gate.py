@@ -256,6 +256,11 @@ def verify_prompt(plan, mr, findings):
         "it (vendor docs, the writing code path, the schema) or treat the meaning as unproven. Where the code's "
         "reading of such a value is unproven and a wrong reading fails silently, that is itself a finding, not a "
         "reason to drop one.",
+        "That no current code writes a value does not mean no rows hold it: data left by older code or imports "
+        "is still in the database. Before dropping a finding that rests on such rows, look for signs they exist "
+        "(comments, guards like whereNotNull, migrations, backfills); if you cannot rule them out, keep it as "
+        "`unverified` with the query that would settle it. When merging duplicates, keep the strongest scenario "
+        "any reviewer gave, and check that a suggested fix does not let those rows win another way.",
         "Merge duplicates (same root cause) into one. Keep a finding as `verified` when you confirmed it, "
         "`unverified` with `settle` (what would decide it) when you cannot tell, and put it in `dropped` with a "
         "one-line reason when it is wrong or already handled. A drop must show the problem cannot happen: "
