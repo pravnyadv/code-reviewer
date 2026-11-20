@@ -134,7 +134,7 @@ LENS_A = """LENS A, runtime behaviour. Spend your effort here:
   read; state left behind by removed code. Each one needs a code fix or a deploy step in the MR description.
 - Concurrency and races, continuations and failure handlers, data that can be lost or duplicated."""
 
-LENS_B = """LENS B, everything else. First these two, listing every instance before checking it:
+LENS_B = """LENS B, everything else. First these four, listing every instance before checking it:
 - Guards that fail open: for every route, endpoint, job or action the change guards or touches, follow the real
   caller's request (the headers and body the real client sends, e.g. a bearer token) through the BODY of each
   middleware, guard or policy to the protected line. A guard that passes when its input is missing or unset is open;
@@ -142,6 +142,14 @@ LENS_B = """LENS B, everything else. First these two, listing every instance bef
 - Tests that cannot fail: for every added or changed test, check its fixtures match the real schema and signatures,
   that it does not depend on the network or other unfaked outside state, and that its assertions would fail if the
   behaviour it names broke.
+- Request inputs: for every field a new or changed route, job or command accepts (validation rules, request DTOs,
+  payload keys), write down its type, its size bounds (max length, max items, numeric range) and its format (dates
+  with or without time and zone, ids, enums), then follow it to where it is used. A missing bound on an array or
+  string that drives a loop, a query or an outbound call, a wrong type that reaches a typed call, and a date sent or
+  stored in a format that shifts by timezone are findings.
+- Sibling paths: for every rule the change adds or relies on in one path (an allowlist, an ownership check, a scope
+  check, a limit), list the other paths that write or read the same data (create, update, import, bulk, jobs) and
+  check each one has it. Report a missing one in the same finding, naming every path, so it is fixed once.
 Then: security and authorization, architecture and design, error handling, performance and N+1 queries, API design
 and backward compatibility, dead code."""
 
@@ -379,7 +387,7 @@ def run(a, repo, extra):
         # an old finding counts as fixed only when every run says so
         statuses = [{x["id"]: x["status"] for x in r.get("recheck", [])} for r, _ in results]
         fixed_ids = [f["id"] for f in recheck if all(st.get(f.get("id")) == "fixed" for st in statuses)]
-        reopened = [f for f in recheck if status.get(f.get("id")) != "fixed"]
+        reopened = [f for f in recheck if f.get("id") not in fixed_ids]
 
     verified, dropped = [], []
     if raw:
