@@ -132,6 +132,11 @@ LENS_A = """LENS A, runtime behaviour. Spend your effort here:
   method or payload is removed or changed; stored or cached data in the old shape; existing callers of a changed
   contract (status code, response fields, route, event), searched in every consumer including sibling repos you can
   read; state left behind by removed code. Each one needs a code fix or a deploy step in the MR description.
+- States the change makes possible: list every state, combination or row shape that was impossible before and is
+  possible now (a record that can now have a link, a status reached by a new path, a field now set or now null). For
+  each, grep the whole repo, changed files or not, for code and comments that rely on it never happening ("never",
+  "always", "only when", early returns, replays built on it). An unchanged path that now runs twice, sends twice or
+  overwrites is a finding.
 - Concurrency and races, continuations and failure handlers, data that can be lost or duplicated."""
 
 LENS_B = """LENS B, everything else. First these four, listing every instance before checking it:
